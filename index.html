@@ -37,20 +37,23 @@ button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px
 .thumbs {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center; /* centre toutes les lignes */
+  justify-content: center;
   gap: 12px;
   margin-top: 16px;
 }
 
 .thumb {
+  position: relative;
   background: rgba(255,255,255,0.03);
   padding: 6px;
   border-radius: 8px;
   text-align: center;
   border: 1px solid rgba(255,255,255,0.03);
-  flex: 1 1 260px; /* largeur de base flexible pour remplir la ligne */
-  max-width: 263px; /* limite maximale pour desktop */
+  flex: 1 1 260px;
+  max-width: 263px;
   box-sizing: border-box;
+  cursor: pointer;
+  overflow: hidden;
 }
 
 .thumb img {
@@ -59,6 +62,36 @@ button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px
   aspect-ratio:16/9;
   object-fit: cover;
   border-radius: 6px;
+  display: block;
+  position: relative;
+}
+
+/* Overlay uniquement sur l'image */
+.thumb .img-container {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.thumb .overlay {
+  position: absolute;
+  top:0; left:0; right:0; bottom:0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.thumb .img-container:hover .overlay {
+  opacity: 1;
+}
+
+.thumb .overlay svg {
+  width: 48px;
+  height: 48px;
+  stroke: #fff;
 }
 
 .thumb small {display:block;margin-top:8px;color:var(--muted)}
@@ -72,8 +105,8 @@ button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px
 /* MOBILE : au moins 2 cartes par ligne */
 @media (max-width:500px) {
   .thumb {
-    flex: 1 1 46%; /* largeur flexible pour mobile */
-    max-width: 48%; 
+    flex: 1 1 46%;
+    max-width: 48%;
     min-width: 120px;
   }
 }
@@ -173,10 +206,24 @@ button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px
       const card=document.createElement('div');
       card.className='thumb';
 
+      // Conteneur image pour overlay
+      const imgContainer=document.createElement('div');
+      imgContainer.className='img-container';
+
       const img=document.createElement('img');
       img.src=url;
       img.alt=s.label;
-      card.appendChild(img);
+      imgContainer.appendChild(img);
+
+      const overlay=document.createElement('div');
+      overlay.className='overlay';
+      overlay.innerHTML=`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>`;
+      imgContainer.appendChild(overlay);
+      card.appendChild(imgContainer);
 
       const small=document.createElement('small');
       small.textContent=s.label;
@@ -184,13 +231,6 @@ button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px
 
       const links=document.createElement('div');
       links.className='links';
-
-      const open=document.createElement('a');
-      open.href=url;
-      open.textContent='Ouvrir';
-      open.target='_blank';
-      open.rel='noopener noreferrer';
-      links.appendChild(open);
 
       const dl=createDownloadLink(url,`${id}_${s.key}.jpg`);
       links.appendChild(dl);
@@ -208,6 +248,12 @@ button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px
       links.appendChild(copy);
 
       card.appendChild(links);
+
+      // CLICK SUR L'IMAGE
+      img.addEventListener('click',()=>{
+        window.open(url, '_blank');
+      });
+
       thumbs.appendChild(card);
     }
   }
