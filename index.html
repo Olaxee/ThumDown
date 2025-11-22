@@ -206,7 +206,6 @@ button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px
       const card=document.createElement('div');
       card.className='thumb';
 
-      // Conteneur image pour overlay
       const imgContainer=document.createElement('div');
       imgContainer.className='img-container';
 
@@ -223,6 +222,12 @@ button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px
         <circle cx="12" cy="12" r="3"/>
       </svg>`;
       imgContainer.appendChild(overlay);
+
+      // Clique sur l'image ou l'overlay
+      imgContainer.addEventListener('click',()=>{
+        window.open(url, '_blank');
+      });
+
       card.appendChild(imgContainer);
 
       const small=document.createElement('small');
@@ -231,7 +236,6 @@ button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px
 
       const links=document.createElement('div');
       links.className='links';
-
       const dl=createDownloadLink(url,`${id}_${s.key}.jpg`);
       links.appendChild(dl);
 
@@ -248,11 +252,6 @@ button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px
       links.appendChild(copy);
 
       card.appendChild(links);
-
-      // CLICK SUR L'IMAGE
-      img.addEventListener('click',()=>{
-        window.open(url, '_blank');
-      });
 
       thumbs.appendChild(card);
     }
