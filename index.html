@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Téléchargeur de miniatures YouTube</title>
+<style>
+:root{--bg:#0f1724;--card:#111827;--muted:#9ca3af;--accent:#60a5fa}
+*{box-sizing:border-box}
+body{
+  font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background:linear-gradient(180deg,#071025 0%,#0b1220 100%);
+  color:#e6eef8;
+  margin:0;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px
+}
+.card{
+  background: transparent;
+  border: none;
+  padding: 0;
+  max-width:820px;
+  width:100%;
+  border-radius:0;
+  box-shadow: none;
+}
+h1{margin:0 0 8px 0; font-size:20px}
+p{margin:0 0 16px 0;color:var(--muted)}
+.row{display:flex; gap:8px; align-items:center}
+input[type=text]{flex:1;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:inherit;outline:none}
+button{background:var(--accent); border:none;padding:10px 12px;border-radius:8px;color:#04223a;font-weight:600;cursor:pointer}
+
+.thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.thumb {
+  position: relative;
+  background: rgba(255,255,255,0.03);
+  padding: 6px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.03);
+  flex: 1 1 260px;
+  max-width: 263px;
+  box-sizing: border-box;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.thumb img {
+  width: 100%;
+  height: auto;
+  aspect-ratio:16/9;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+  position: relative;
+}
+
+.thumb .img-container {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.thumb .overlay {
+  position: absolute;
+  top:0; left:0; right:0; bottom:0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .thumb .img-container:hover .overlay {
+    opacity: 1;
+  }
+}
+
+.thumb .overlay svg {
+  width: 48px;
+  height: 48px;
+  stroke: #fff;
+}
+
+.thumb small {display:block;margin-top:8px;color:var(--muted)}
+
+.links{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  justify-content:center;
+  margin-top:8px
+}
+
+.links a{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px 8px;
+  border-radius:6px;
+  background:rgba(255,255,255,0.03);
+  text-decoration:none;
+  color:inherit;
+  font-size:13px;
+}
+
+.links a svg{width:24px;height:24px; margin-right:0;}
+
+.error{color:#ffb4b4;background:rgba(255,180,180,0.05);padding:8px;border-radius:6px;margin-top:10px}
+
+/* MOBILE */
+@media (max-width:500px) {
+  .thumb {
+    flex: 1 1 46%;
+    max-width: 48%;
+    min-width: 120px;
+  }
+  .thumb .overlay {
+    display: none;
+  }
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Téléchargeur</h1>
+  <p>Colle le lien YouTube.</p>
+
+  <div class="row">
+    <input id="inputUrl" type="text" placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ ou dQw4w9WgXcQ" />
+    <button id="btn">Récupérer</button>
+  </div>
+
+  <div id="error" class="error" style="display:none"></div>
+
+  <div id="results" style="display:none">
+    <div class="thumbs" id="thumbs"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const btn=document.getElementById('btn');
+  const input=document.getElementById('inputUrl');
+  const thumbs=document.getElementById('thumbs');
+  const results=document.getElementById('results');
+  const error=document.getElementById('error');
+
+  const sizes=[
+    {key:'maxresdefault', label:'1280×720 (HD)'},
+    {key:'sddefault', label:'640×480 (SD)'},
+    {key:'hqdefault', label:'480×360 (HQ)'},
+    {key:'mqdefault', label:'320×180 (MQ)'},
+    {key:'default', label:'120×90 (Mini)'}
+  ];
+
+  function parseVideoId(text){
+    if(!text)return null;
+    text=text.trim();
+    const patterns=[
+      /v=([A-Za-z0-9_-]{11})/,
+      /youtu\.be\/([A-Za-z0-9_-]{11})/,
+      /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/,
+      /^([A-Za-z0-9_-]{11})$/
+    ];
+    for(const p of patterns){
+      const m=text.match(p);
+      if(m)return m[1];
+    }
+    const found=text.match(/[A-Za-z0-9_-]{11}/);
+    return found?found[0]:null;
+  }
+
+  function clearResults(){
+    thumbs.innerHTML='';
+    results.style.display='none';
+    error.style.display='none';
+    error.textContent='';
+  }
+
+  function showError(msg){
+    error.textContent=msg;
+    error.style.display='block';
+    results.style.display='none';
+  }
+
+  function createDownloadLink(url,suggestedName){
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=suggestedName||'';
+    a.target='_blank';
+    a.rel='noopener noreferrer';
+    a.innerHTML=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48' role='img' aria-label='Télécharger'><title>Télécharger</title><path fill='currentColor' d='M12 3a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 0 1 1.414 1.414l-4 4A1 1 0 0 1 12 16a1 1 0 0 1-.707-.293l-4-4a1 1 0 1 1 1.414-1.414L11 12.586V4a1 1 0 0 1 1-1zM21 18a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-1z'/></svg>`;
+    return a;
+  }
+
+  function checkImageExists(url){
+    return new Promise(resolve=>{
+      const img=new Image();
+      img.onload=()=>resolve(true);
+      img.onerror=()=>resolve(false);
+      img.src=url+(url.includes('?')?'&':'?')+'cb='+Date.now();
+      setTimeout(()=>resolve(false),3000);
+    });
+  }
+
+  async function buildThumbnails(id){
+    thumbs.innerHTML='';
+    results.style.display='block';
+
+    for(const s of sizes){
+      const url=`https://img.youtube.com/vi/${id}/${s.key}.jpg`;
+      await checkImageExists(url);
+
+      const card=document.createElement('div');
+      card.className='thumb';
+
+      const imgContainer=document.createElement('div');
+      imgContainer.className='img-container';
+
+      const img=document.createElement('img');
+      img.src=url;
+      img.alt=s.label;
+      imgContainer.appendChild(img);
+
+      const overlay=document.createElement('div');
+      overlay.className='overlay';
+      overlay.innerHTML=`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>`;
+      imgContainer.appendChild(overlay);
+
+      imgContainer.addEventListener('click',()=>{ window.open(url, '_blank'); });
+
+      card.appendChild(imgContainer);
+
+      const small=document.createElement('small');
+      small.textContent=s.label;
+      card.appendChild(small);
+
+      const links=document.createElement('div');
+      links.className='links';
+
+      const dl=createDownloadLink(url,`${id}_${s.key}.jpg`);
+      links.appendChild(dl);
+
+      // ICONE COPIER URL
+      const copy=document.createElement('a');
+      copy.href='#';
+      copy.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="icon-md"><path d="M12.668 10.667C12.668 9.95614 12.668 9.46258 12.6367 9.0791C12.6137 8.79732 12.5758 8.60761 12.5244 8.46387L12.4688 8.33399C12.3148 8.03193 12.0803 7.77885 11.793 7.60254L11.666 7.53125C11.508 7.45087 11.2963 7.39395 10.9209 7.36328C10.5374 7.33197 10.0439 7.33203 9.33301 7.33203H6.5C5.78896 7.33203 5.29563 7.33195 4.91211 7.36328C4.63016 7.38632 4.44065 7.42413 4.29688 7.47559L4.16699 7.53125C3.86488 7.68518 3.61186 7.9196 3.43555 8.20703L3.36524 8.33399C3.28478 8.49198 3.22795 8.70352 3.19727 9.0791C3.16595 9.46259 3.16504 9.95611 3.16504 10.667V13.5C3.16504 14.211 3.16593 14.7044 3.19727 15.0879C3.22797 15.4636 3.28473 15.675 3.36524 15.833L3.43555 15.959C3.61186 16.2466 3.86474 16.4807 4.16699 16.6348L4.29688 16.6914C4.44063 16.7428 4.63025 16.7797 4.91211 16.8027C5.29563 16.8341 5.78896 16.835 6.5 16.835H9.33301C10.0439 16.835 10.5374 16.8341 10.9209 16.8027C11.2965 16.772 11.508 16.7152 11.666 16.6348L11.793 16.5645C12.0804 16.3881 12.3148 16.1351 12.4688 15.833L12.5244 15.7031C12.5759 15.5594 12.6137 15.3698 12.6367 15.0879C12.6681 14.7044 12.668 14.211 12.668 13.5V10.667Z"></path></svg>`;
+
+      copy.addEventListener('click',e=>{
+        e.preventDefault();
+        navigator.clipboard.writeText(url).then(()=>{
+          copy.innerHTML = `<span style="font-size:12px;">✓</span>`;
+          setTimeout(()=>{ copy.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="icon-md"><path d="M12.668 10.667C12.668 9.95614 12.668 9.46258 12.6367 9.0791C12.6137 8.79732 12.5758 8.60761 12.5244 8.46387L12.4688 8.33399C12.3148 8.03193 12.0803 7.77885 11.793 7.60254L11.666 7.53125C11.508 7.45087 11.2963 7.39395 10.9209 7.36328C10.5374 7.33197 10.0439 7.33203 9.33301 7.33203H6.5C5.78896 7.33203 5.29563 7.33195 4.91211 7.36328C4.63016 7.38632 4.44065 7.42413 4.29688 7.47559L4.16699 7.53125C3.86488 7.68518 3.61186 7.9196 3.43555 8.20703L3.36524 8.33399C3.28478 8.49198 3.22795 8.70352 3.19727 9.0791C3.16595 9.46259 3.16504 9.95611 3.16504 10.667V13.5C3.16504 14.211 3.16593 14.7044 3.19727 15.0879C3.22797 15.4636 3.28473 15.675 3.36524 15.833L3.43555 15.959C3.61186 16.2466 3.86474 16.4807 4.16699 16.6348L4.29688 16.6914C4.44063 16.7428 4.63025 16.7797 4.91211 16.8027C5.29563 16.8341 5.78896 16.835 6.5 16.835H9.33301C10.0439 16.835 10.5374 16.8341 10.9209 16.8027C11.2965 16.772 11.508 16.7152 11.666 16.6348L11.793 16.5645C12.0804 16.3881 12.3148 16.1351 12.4688 15.833L12.5244 15.7031C12.5759 15.5594 12.6137 15.3698 12.6367 15.0879C12.6681 14.7044 12.668 14.211 12.668 13.5V10.667Z"></path></svg>`},1200);
+        });
+      });
+
+      links.appendChild(copy);
+
+      card.appendChild(links);
+
+      thumbs.appendChild(card);
+    }
+  }
+
+  btn.addEventListener('click',async()=>{
+    clearResults();
+    const id=parseVideoId(input.value);
+    if(!id){showError("Impossible d'extraire l'ID vidéo.");return;}
+    await buildThumbnails(id);
+  });
+
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter')btn.click();
+  });
+})();
+</script>
+</body>
+</html>
